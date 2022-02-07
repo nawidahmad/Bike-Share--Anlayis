@@ -1,0 +1,392 @@
+---
+title: "Cyclistic bike share analysis"
+author: "Nawid Ahmad Noori"
+date: "2/3/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+![Company logo](Pictures/cyclistic_logo.jpg)
+
+
+
+
+
+<h2>Introduction</h2>
+ 
+This analysis case study is part of Google data analytics Professional certificate.I used bike-sharing company data to analyze user behavior, find similarities and differences, determine trends, and provide recommendations on how these insights can help the marketing team to create a campaign that would convert one type of users into another.
+
+<h2>Scenario</h2>
+ 
+Cyclistic is a bike-share company in Chicago,which have two types of customers,casual(pay for each ride) andmembers(pay yearly subscription), The director of marketing believes the company’s future success depends on maximizing the number of member customers. Therefore, we wants to understand how casual riders and member riders use Cyclistic bikes differently. From these insights, marketing team will design a new marketing strategy to convert casual riders into annual members.
+
+<h2>Stakeholders</h2>
+ 
+●Cyclistic: A bike-share program that features more than 5,800 bicycles and 600 docking stations.
+ 
+●Lily Moreno: The director of marketing and your manager. Moreno is responsible for the development of campaigns and initiatives to promote the bike-share program. These may include email, social media, and other channels.
+ 
+●Cyclistic marketing analytics team: A team of data analysts who are responsible for collecting, analyzing, and reporting data that helps guide Cyclistic marketing strategy.
+ 
+●Cyclistic Executive Team : Detail-oriented executive team that will decide whether to approve the recommended marketing program
+ 
+
+<h2>Phase 1: ASK</h2>
+ 
+<h3>Identify the business task</h3>
+ 
+The key business task in this case study is to discover how casual riders and Cyclistic members use their rental bikes differently. Both the Director of Marketing as well as finance analysts have concluded that member customers are more profitable.
+ 
+Therefore, the results of this analysis will be used to design a new marketing strategy to convert casual riders to annual members.
+ 
+<h3>Consider key stakeholders</h3>
+ 
+Key stakeholders include: Cyclistic executive team, Director of Marketing (Lily Moreno), Marketing Analytics team.
+ 
+<h2>Phase 2 : Prepare</h2>
+ 
+
+<h3>Data source</h3>
+ 
+User data from the past 12 months, January 2021 - December 2021 are available in the company cloud storage. Each data set is consists of 13 columns with a various number of records depending on each month’s rides, data sets are in csv format and details every ride logged by Cyclistic customers. This data has been made publicly available via license by Motivate International Inc. and the city of Chicago available here. All user’s personal data has been scrubbed for privacy.
+ 
+<h3>Determine the credibility of the data and bias</h3>
+ 
+Due to the fact that this is a case study using public data, we are going to assume the data is credible.
+ 
+<h3>Download data and store it appropriately</h3>
+ 
+Data has been downloaded from the company cloud storage. Local copies have been stored securely on Data folder in the folder of the Rstudio project
+ 
+<h2>Phase 3 : Process</h2>
+ 
+<h3>Choose your tools</h3>
+ 
+For this analysis, we will be using R for it's easy statistical analysis tools and data visualizations.
+
+
+<h3>Install and load necessary packages</h3>
+ 
+```{r include=FALSE}
+#install.packages("tidyverse")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("lubridate")
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+```
+
+<h3>Import data into a data frame</h3>
+ 
+The code chunk below will import 12 individual .CSV files as one data frames
+```{r include=FALSE}
+Data <- rbind(
+  read.csv("Data/202101-divvy-tripdata.csv"),
+  read.csv("Data/202102-divvy-tripdata.csv"),
+  read.csv("Data/202103-divvy-tripdata.csv"),
+  read.csv("Data/202104-divvy-tripdata.csv"),
+  read.csv("Data/202105-divvy-tripdata.csv"),
+  read.csv("Data/202106-divvy-tripdata.csv"),
+  read.csv("Data/202107-divvy-tripdata.csv"),
+  read.csv("Data/202108-divvy-tripdata.csv"),
+  read.csv("Data/202109-divvy-tripdata.csv"),
+  read.csv("Data/202110-divvy-tripdata.csv"),
+  read.csv("Data/202111-divvy-tripdata.csv"),
+  read.csv("Data/202112-divvy-tripdata.csv"))
+```
+
+<h3>Explore the Data</h3>
+ 
+<h4>view head of data frame</h4>
+```{r}
+head(Data)
+```
+
+<h4>view the detailed description and structure of data frame</h4>
+```{r}
+str(Data)
+```
+<h4>View data labels</h4>
+```{r}
+colnames(Data)
+```
+<h4>View summary of dataframe</h4>
+```{r}
+summary(Data)
+```
+
+<h3>Data Cleaning and transformation</h3>
+ 
+Further inspection of the files showed that there are multiple null values, incorrect data type and mislabeled columns
+ 
+<h4>Remove null values and duplicate records</h4>
+ 
+The code chunk below will remove null values from key columns
+```{r}
+Data <-  Data[!(is.na(Data$rideable_type) | Data$rideable_type=="" | Data$member_casual=="N/A"), ]
+Data <-  Data[!(is.na(Data$started_at) | Data$started_at=="" | Data$member_casual== "N/A"), ]
+Data <-  Data[!(is.na(Data$ended_at) | Data$ended_at=="" | Data$member_casual== "N/A"), ]
+Data <-  Data[!(is.na(Data$start_station_name) | Data$start_station_name=="" | Data$start_station_name== "N/A"), ]
+Data <-  Data[!(is.na(Data$end_station_name) | Data$end_station_name=="" | Data$end_station_name== "N/A"), ]
+Data <-  Data[!(is.na(Data$member_casual) | Data$member_casual=="" | Data$member_casual== "N/A"), ]
+Data<- filter(Data,Data$ride_id !="ride_id") # remove multiple headers
+Data <- Data %>% distinct(ride_id, .keep_all= TRUE) # remove duplicate records
+```
+
+
+<h4>Convert mismatched data types</h4>
+```{r}
+Data[['started_at']] <- strptime(Data[['started_at']],format = "%Y-%m-%d %H:%M:%S")
+Data[['ended_at']] <- strptime(Data[['ended_at']],format = "%Y-%m-%d %H:%M:%S")
+```
+
+<h4>Add the calculated fields</h4>
+ 
+the code chunk below will add required calculated columns for analysis
+```{r}
+#add the route column by combining the start and end station names
+Data <- mutate(Data,route = paste(Data$start_station_name,"-",Data$end_station_name,sep = ""))
+#add the date column
+Data$date <- as.Date(Data$started_at)
+#add the month column
+Data$month <- format(as.Date(Data$started_at), "%b_%y")
+#add the season column
+Data$season <- format(as.Date(Data$date), "%b")
+Data["season"][Data["season"] == "Mar" | Data["season"] == "Apr" | Data["season"] == "May"] <- "Spring"
+Data["season"][Data["season"] == "Jun" | Data["season"] == "Jul" | Data["season"] == "Aug"] <- "Summer"
+Data["season"][Data["season"] == "Sep" | Data["season"] == "Oct" | Data["season"] == "Nov"] <- "Autumn"
+Data["season"][Data["season"] == "Dec" | Data["season"] == "Jan" | Data["season"] == "Feb"] <- "Winter"
+#add the day of week column
+Data <- mutate(Data,day_of_week = weekdays(Data$started_at))
+#add the time column
+Data <- mutate(Data,time = format(Data$started_at,format = "%H"))
+Data$time <- paste(Data$time,":00",sep = "")
+#add the ride length column
+Data <- mutate(Data,ride_length = (Data$ended_at - Data$started_at)/60)
+Data$ride_length <- as.integer(Data$ride_length)
+#add type of day column
+Data <- mutate(Data,type_of_day = day_of_week)
+Data["type_of_day"][Data["type_of_day"] == "Saturday" | Data["type_of_day"] == "Sunday"] <- "Weekend"
+Data["type_of_day"][Data["type_of_day"] == "Monday" | Data["type_of_day"] == "Tuesday" | Data["type_of_day"] == "Wednesday" | Data["type_of_day"] == "Thursday" | Data["type_of_day"] == "Friday"] <- "Workday"
+
+```
+<h4>Rename misleading variable labels</h4>
+ 
+the code chunk below will rename the two columns names and lowercase all labels
+```{r}
+Data <- Data %>% rename(customer_type = member_casual)
+Data <- Data %>% rename(Bike_type = rideable_type)
+Data <- rename_with(Data,tolower)
+```
+<h4>Remove the outliers</h4>
+ 
+Lily Moreno has confirmed that records with ride length less then 5 minutes and grather than 1440 minutes are outliers, the code chunk below will remove the outliers
+```{r}
+Data <- filter(Data,ride_length >= 5 & ride_length <= 1440)
+```
+
+<h2>Phase 4 : Analyze</h2>
+ 
+Find patterns and relationships in data to explore the differences and similarities between the member and casual riders
+ 
+<h3>Organize data</h3>
+ 
+the code chunk below will organize the data into meaning full order
+```{r}
+Data$day_of_week <- ordered(Data$day_of_week, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+Data$month <- ordered(Data$month, levels=c("Jan_21", "Feb_21", "Mar_21", "Apr_21",  "May_21", "Jun_21","Jul_21", "Aug_21", "Sep_21", "Oct_21","Nov_21", "Dec_21"))
+Data$season <- ordered(Data$season, levels=c("Spring","Summer","Autumn","Winter"))
+
+```
+<h4>Get backup of data and remove unnecessary columns</h4>
+```{r}
+#get a backup of data 
+#write.csv(Data,"Data/backup.csv",row.names = FALSE)
+
+##remove unnecessary columns
+Data <- Data %>% select(-ride_id,-started_at,-ended_at,-start_station_id,-end_station_id)
+```
+
+<h3>Look at the specifics of what the data shows</h3>
+
+<h4>summarize the ride length by customer type</h4>
+```{r}
+Data%>% group_by(customer_type) %>% summarise(total_ride_length = n(),average_ride_length=mean(ride_length),minimum_ride_length=min(ride_length),maximum_ride_length=max(ride_length))
+```
+<h4>summarize the ride length by customer type and weekday</h4>
+```{r}
+Data%>% group_by(day_of_week,customer_type) %>% summarise(total_ride_length = n(),average_ride_length=mean(ride_length),minimum_ride_length=min(ride_length),maximum_ride_length=max(ride_length))
+
+```
+<h4>summarize number of rides by customer type and type of day</h4>
+```{r}
+Data%>% group_by(type_of_day,customer_type) %>% summarise(count = n())
+
+```
+<h4>summarize number of rides by customer type and bike type</h4>
+```{r}
+Data%>% group_by(bike_type,customer_type) %>% summarise(count = n())
+
+```
+<h4>summarize number of rides by customer type and month</h4>
+```{r}
+Data%>% group_by(month,customer_type) %>% summarise(count = n())
+
+```
+<h4>summarize number of rides by customer type and time</h4>
+```{r}
+Data%>% group_by(time,customer_type) %>% summarise(count = n())
+
+```
+<h4>Summarize number of rides by customer type and start stations with most number of rides</h4>
+```{r}
+Data%>% group_by(start_station_name,customer_type) %>% summarise(count = n()) %>% top_n(5)
+
+```
+<h4>summarize number of rides by customer type and routes with most number of rides</h4>
+```{r}
+rbind((Data %>%group_by(route,customer_type)%>%filter(customer_type == "casual")%>% summarise(total = n()) %>% top_n(5)),(Data %>%group_by(route,customer_type)%>%filter(customer_type == "member")%>% summarise(total = n()) %>% top_n(5)))
+
+```
+
+<h3>Data findings with visualizations</h3>
+ 
+<h4>Number of Rides per customer type</h4>
+```{r}
+Data %>% group_by(customer_type) %>%summarise(total = (n()/nrow(Data))*100) %>% ggplot(aes(x="", y=total, fill=customer_type))+geom_bar(width = 1, stat = "identity")+coord_polar("y", start=0) + geom_text(aes(label = paste0(round(total), "%")), position = position_stack(vjust = 0.5)) + labs(x = NULL, y = NULL, title = "Percentage of rides by customer type",fill="Customer type") + theme_void()
+
+```
+The above visual shows that the members are more renting bikes
+ 
+<h4>Average ride length by customer type</h4>
+```{r}
+Data %>% group_by(customer_type) %>%summarise(average_ridelength = mean(ride_length))%>%ggplot() + geom_col(mapping = aes(x=customer_type,y=average_ridelength),position = "dodge") + labs(x = " Customer type", y = "Average ride lenth (min)",title = "Avarage ride length by customer type")+ coord_flip()
+
+```
+The above visual shows that, the casuals have longer trips.
+ 
+<h4>Number of rides by customer type and season</h4>
+```{r}
+Data %>% group_by(customer_type,season) %>%summarise(total = n())%>% arrange(customer_type,season) %>% ggplot() + geom_col(mapping = aes(x=season,y=total,fill = customer_type),position = "dodge") + labs(x = "Season", y = "Number of rides",fill="Customer type",title = "Number of  rides by season")
+
+```
+The above visual shows that ,the summer season bring more riders in total but casual riders usage is nearly nonexistent in the winter season, There are multiple factors which contribute to this result but member riders still use the service at a good rate in all seasons
+ 
+<h4>Number of rides by customer type and month</h4>
+```{r}
+Data %>% group_by(customer_type,month) %>%summarise(total = n())%>% arrange(customer_type,month) %>% ggplot() + geom_col(mapping = aes(x=month,y=total,fill = customer_type),position = "dodge") + labs(x = "month", y = "Number of ries",fill="Customer type",title = "Number of rieds by month")
+
+```
+The above visual shows that ,the summer months bring more riders in total but casual rider usage is nearly nonexistent in the winter months. There are multiple factors which contribute to this result but annual members still use the service at a good rate in those months
+ 
+<h4>Number of rides by customer type and  weekday</h4>
+```{r}
+Data %>% group_by(customer_type,day_of_week) %>%summarise(total = n())%>% arrange(customer_type,day_of_week) %>% ggplot() + geom_col(mapping = aes(x=day_of_week,y=total,fill = customer_type),position = "dodge") + labs(x = " Day of week", y = "Number of rides",fill="Customer type",title = "Number of rides by day of week")
+
+```
+The above visual shows that,the casual riders peak on the Saturday and Sunday while members peak Monday through Friday. This indicates members mainly use the bikes for their commutes and not leisure
+ 
+<h4>Avarage ride length by customer type and weekday</h4>
+```{r}
+Data %>% group_by(customer_type,day_of_week) %>%summarise(average_ridelength = mean(ride_length))%>% arrange(customer_type,day_of_week) %>% ggplot() + geom_col(mapping = aes(x=day_of_week,y=average_ridelength,fill = customer_type),position = "dodge") + labs(x = " Day of week", y = "Average ride length (min)",fill="Customer type",title = "Avarage ride length by day of week")
+
+```
+The above visual shows that, the casual riders is considerably longer than those of members and peak on Saturday and Sunday. Annual members bike a near constant length regardless of day of week.
+ 
+<h4>Number of rides by customer type and type of day</h4>
+```{r}
+Data %>% group_by(customer_type,type_of_day) %>%summarise(total = n())%>% arrange(customer_type,type_of_day) %>% ggplot() + geom_col(mapping = aes(x=customer_type,y=total),position = "dodge") + labs(x = " Type of day", y = "Number of rides",title = "Number of rides by weekend and weekday") + facet_wrap(~type_of_day)
+```
+The above visual shows that, the member peak on on workdays while causal peak on weekends,this prove our hypothesis that most of the annual members commute daily to work
+ 
+<h4>Number of rides by customer type and time</h4>
+```{r}
+Data %>% group_by(customer_type,time) %>%summarise(total_rids = n()) %>% ggplot() + geom_line(mapping = aes(x=time,y=total_rids,color = customer_type, group = customer_type)) + labs(x = "Time", y = "total rides",fill="Customer type",title = "Demand Throughout the Day")+theme(axis.text.x = element_text(angle = 45))
+
+```
+The above visual shows that, that usage by member customers peak during rush hour to indicate many use the bikes for commutes to and from work especially with the steep drop after the peak at 5pm. Casual riders are not as volatile as there is a steady increase throughout the day with a steady decrease after the peak at 5pm.
+ 
+<h4>Number of rides by customer type and bike type</h4>
+```{r}
+Data %>% group_by(customer_type,bike_type) %>%summarise(total = n())%>% arrange(customer_type,bike_type) %>% ggplot() + geom_col(mapping = aes(x=bike_type,y=total,fill = customer_type),position = "dodge") + labs(x = " Bike type", y = "Number of rides",fill="Customer type",title = "Number of rides by bike type")
+
+```
+The above visual shows that, the members use classic bikes much more than casual members. The electric bike use is nearly identical but casual riders are more willing to use docked bikes.
+ 
+<h4>Number of rides of member customers by station with most number of rides (Top10)</h4>
+```{r}
+Data %>% filter(customer_type == "member")%>%group_by(start_station_name) %>%summarise(total = n())%>% top_n(10) %>%arrange(total)%>%ggplot() + geom_col(mapping = aes(x=reorder(start_station_name,total),y=total),position = "dodge") + labs(x = " Station", y = "Number of rides",title = "Number of rieds by top 10 stations with most number of rides by member")+ coord_flip()
+
+```
+the above visual shows, the top 10 start stations with most number of rides by members, based on my research these are resident areas
+ 
+<h4>Number of rides of casual customers by station with most number of rides (Top10)</h4>
+```{r}
+Data %>% filter(customer_type == "casual")%>%group_by(start_station_name) %>%summarise(total = n())%>% top_n(10) %>%arrange(total)%>%ggplot() + geom_col(mapping = aes(x=reorder(start_station_name,total),y=total),position = "dodge") + labs(x = " Station", y = "Number of rides",title = "Number of rieds by top 10 stations with most number of rieds by causal")+ coord_flip()
+
+```
+the above visual shows, the top 10 start stations with most number of rides by casual, based on my research these are city center and cultural areas. 
+ 
+<h4>Number of rides of member customers by route with most number of rides (Top10)</h4>
+```{r}
+Data %>% filter(customer_type == "member")%>%group_by(route) %>%summarise(total = n())%>% top_n(10) %>%arrange(total)%>%ggplot() + geom_col(mapping = aes(x=reorder(route,total),y=total),position = "dodge") + labs(x = " Route", y = "Number of rides",title = "Number of  rides by top 10 stations with most number rieds by member ")+ coord_flip()
+
+```
+the above visual shows, the top 10 routes with most number of rides by members.
+ 
+<h4>Number of rides of casual customers by station with most number of rides (Top10)</h4>
+```{r}
+Data %>% filter(customer_type == "casual")%>%group_by(route) %>%summarise(total = n())%>% top_n(10) %>%arrange(total)%>%ggplot() + geom_col(mapping = aes(x=reorder(route,total),y=total),position = "dodge") + labs(x = " Route", y = "Number of rides",title = "Number of  rides by top 10 routs with most number of rides")+ coord_flip()
+
+```
+the above visual shows, the top 10 routs with most number of rides by casual.
+ 
+<h2>Phase 5 : Share</h2>
+ 
+Now we’re ready to share our findings with team.
+ 
+<h3>Key findings</h3>
+ 
+●Casual riders mostly use bike-sharing for leisure and tourism purposes and are highly active on weekends
+ 
+●Members use bike-sharing to commute to work during the week and are more active on weekdays rather than weekends.
+ 
+●Casual riders ride nearly 50% longer than members on average
+ 
+●Member riders mainly use the bikes for their commutes as their usage peaks on weekdays during rush hour
+ 
+●Casual riders use the bikes more for leisure based on the peak usage in summer months and weekends
+ 
+●Casual riders do not use the service during the winter months as much as annual members
+ 
+●Annual members mainly use classic bikes and rarely use docked bikes but casual riders are more open to riding all kinds of bikes specially for ducked bike
+ 
+  
+ 
+<h2>Phase 6 : Act</h2>
+ 
+<h3>Recommendations</h3>
+ 
+1.Based on finding it’s worth considering to offer new types of membership focused on weekend rides
+ 
+2.As Casual riders use bikes for much longer trips than members, we should offer bonuses for longer rides
+ 
+3.The campaign should start in spring offering early-bird discounts for these new types of memberships and continue during the Summer peak
+ 
+4.We should increase the number of ducked bikes in stations
+  
+  
+ 
+ 
+ 
+ 
+ 
+ 
+<h4>End of case study</h4>
